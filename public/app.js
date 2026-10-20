@@ -171,14 +171,17 @@ function renderList() {
   state.renderedUnconfirmed = unconfirmed();
   list.innerHTML = journeys.length
     ? journeys.map((journey, index) => journeyMarkup(journey, index, firstId)).join('')
-    : `<div class="state-card card">${icon('train')}<h3>Keine passenden Verbindungen gefunden</h3><p>${unconfirmed() ? 'Der letzte Abruf ist nicht mehr bestätigt. Bitte erneut aktualisieren.' : 'Die Bahn meldet im abgefragten Zeitraum keine direkten RE- oder RB-Verbindungen auf dieser Strecke.'}</p><button class="text-button" data-action="refresh">Noch einmal aktualisieren ↗</button></div>`;
+    : `<div class="state-card card">${icon('train')}<h3>Keine passenden Verbindungen gefunden</h3><p>${unconfirmed() ? 'Der letzte Abruf ist nicht mehr bestätigt. Bitte erneut aktualisieren.' : 'Die Datenquelle meldet im abgefragten Zeitraum keine direkten RE- oder RB-Verbindungen auf dieser Strecke.'}</p><button class="text-button" data-action="refresh">Noch einmal aktualisieren ↗</button></div>`;
 }
 
 function updateFreshness() {
   const uncertain = unconfirmed();
   const fresh = $('freshness');
   fresh.className = `freshness ${state.error || uncertain ? 'error' : !state.data || state.demo ? 'pending' : ''}`;
-  $('freshness-label').textContent = state.demo ? 'Beispieldaten · keine Live-Daten' : state.error ? 'Abruf fehlgeschlagen' : uncertain ? 'Daten veraltet' : state.loading ? 'Daten werden abgefragt' : state.data ? 'Neu von der Bahn abgerufen' : 'Daten werden geladen';
+  $('freshness-label').textContent = state.demo ? 'Beispieldaten · keine Live-Daten' : state.error ? 'Abruf fehlgeschlagen' : uncertain ? 'Daten veraltet' : state.loading ? 'Daten werden abgefragt' : state.data ? 'Neu abgerufen' : 'Daten werden geladen';
+  $('data-source').textContent = state.data ? `Datenquelle: ${state.data.source}` : 'Datenquelle wird geprüft.';
+  $('transitous-attribution').hidden = state.data?.attribution !== 'transitous';
+  $('coverage-notice').hidden = state.demo || uncertain || !state.data?.journeys.length || state.data.journeys.some(journey => journey.realtime || journey.cancelled);
   $('compact-status').textContent = `${state.demo ? 'BEISPIELDATEN' : state.error ? 'Abruf fehlgeschlagen' : uncertain ? 'Daten veraltet' : state.loading ? 'Wird aktualisiert …' : 'Zuletzt abgerufen'}${state.data ? ` · ${timeLabel(state.data.fetchedAt)} Uhr` : ''}`;
   $('compact-status').classList.toggle('error', Boolean(uncertain));
   $('last-success').textContent = state.data ? `${dateLabel(state.data.fetchedAt)} · ${new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Berlin' }).format(new Date(state.data.fetchedAt))} Uhr` : 'Noch kein Abruf';

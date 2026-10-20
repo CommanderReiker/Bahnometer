@@ -1,4 +1,4 @@
-const CACHE = 'bahnometer-shell-v1';
+const CACHE = 'bahnometer-shell-v2';
 const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/domain.js', '/demo.js', '/icon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

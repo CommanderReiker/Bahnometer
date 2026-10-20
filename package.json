@@ -1,16 +1,25 @@
 {
   "name": "bahnometer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Aktuelle RE- und RB-Verbindungen zwischen Ingolstadt und Pfaffenhofen (Ilm).",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test test/unit/*.test.js",
-    "test:e2e": "node --test test/browser.test.js"
+    "test:e2e": "node --test test/browser.test.js",
+    "check:live": "node scripts/check-live.js"
   },
-  "dependencies": { "db-vendo-client": "6.11.3" },
-  "devDependencies": { "playwright": "1.64.1" }
+  "dependencies": {
+    "cross-fetch": "4.1.0",
+    "db-vendo-client": "6.11.3",
+    "https-proxy-agent": "7.0.6"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
 }

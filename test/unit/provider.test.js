@@ -67,6 +67,7 @@ test('HTTP 466 bleibt nach Sperre beider Zugänge als Diagnose verfügbar', asyn
   } }) });
   await assert.rejects(provider.journeys('a', 'b', {}), { code: 'BAHN_ACCESS_BLOCKED', upstreamStatus: 466 });
   assert.equal(isBahnAccessBlocked({ code: 'OPS_BLOCKED' }), true);
+  assert.equal(isBahnAccessBlocked({ response: { status: 452 } }), true);
   assert.equal(isBahnAccessBlocked({ response: { status: 500 } }), false);
   assert.equal(isBahnAccessBlocked(new Error('Unknown')), false);
 });

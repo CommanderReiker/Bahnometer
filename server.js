@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, extname, sep } from 'node:path';
 import { createRailService } from './lib/rail.js';
-import { createBahnProvider } from './lib/provider.js';
+import { createDataProvider } from './lib/data-provider.js';
+import metadata from './package.json' with { type: 'json' };
 
 const publicDir = resolve(fileURLToPath(new URL('./public/', import.meta.url)));
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
@@ -14,7 +15,7 @@ const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
 
-export function createApp({ rail = createRailService(createBahnProvider()), logger = console } = {}) {
+export function createApp({ rail = createRailService(createDataProvider()), logger = console } = {}) {
   let requestsInWindow = 0;
   let windowStart = Date.now();
   return createServer(async (req, res) => {
@@ -26,7 +27,7 @@ export function createApp({ rail = createRailService(createBahnProvider()), logg
     try {
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'METHOD_NOT_ALLOWED' }, { Allow: 'GET, HEAD' });
       const url = new URL(req.url, 'http://localhost');
-      if (url.pathname === '/api/health') return json(200, { status: 'ok' });
+      if (url.pathname === '/api/health') return json(200, { status: 'ok', version: metadata.version, provider: process.env.RAIL_PROVIDER || 'transitous' });
       if (url.pathname === '/api/connections') {
         const origin = url.searchParams.get('origin');
         if (!['home', 'work'].includes(origin)) return json(400, { error: 'INVALID_ORIGIN', message: 'Bitte Zuhause oder Arbeit als Start wählen.' });
@@ -38,6 +39,7 @@ export function createApp({ rail = createRailService(createBahnProvider()), logg
           const upstreamStatus = error.upstreamStatus || error.response?.status;
           logger.error('Bahn-Abfrage fehlgeschlagen:', error.code || error.name, upstreamStatus ? `HTTP ${upstreamStatus}` : '', error.message);
           if (error.code === 'BAHN_ACCESS_BLOCKED') return json(502, { error: 'BAHN_ACCESS_BLOCKED', upstreamStatus, message: `Die Bahn blockiert den Abruf von diesem Internetzugang (${upstreamStatus ? `HTTP ${upstreamStatus} / ` : ''}OPS_BLOCKED). Bitte später erneut versuchen. Bei einer dauerhaften Sperre wird ein anderer Datenzugang benötigt.` });
+          if (error.code === 'TRANSITOUS_UNAVAILABLE') return json(502, { error: 'TRANSITOUS_UNAVAILABLE', message: error.message });
           return json(502, { error: 'UPSTREAM_UNAVAILABLE', message: 'Die Bahn-Daten sind gerade nicht erreichbar. Bitte erneut aktualisieren. Vorhandene Anzeigen sind nicht mehr bestätigt.' });
         }
       }
@@ -62,6 +64,9 @@ export function createApp({ rail = createRailService(createBahnProvider()), logg
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
   const server = createApp();
-  server.listen(port, '0.0.0.0', () => console.log(`Bahnometer läuft auf Port ${port}.`));
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`Bahnometer läuft auf Port ${port}.`);
+    console.log(`Version ${metadata.version} · Datenquelle: ${process.env.RAIL_PROVIDER || 'transitous'}`);
+  });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));
 }

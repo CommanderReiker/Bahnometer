@@ -120,6 +120,29 @@ test('Veralteter Zeitstempel zeigt Warnung statt aktuelle Entwarnung', async t =
   assert.equal(await page.locator('.next-label').count(), 0);
 });
 
+test('Unabhängige Datenquelle und Quellenhinweise werden sichtbar angezeigt', async t => {
+  const { page, baseURL } = await setup(t, { getConnections: async origin => ({ ...demoConnections(origin), source: 'Transitous · DELFI / offene Verkehrsdaten', attribution: 'transitous' }) });
+  await page.goto(baseURL);
+  await page.waitForSelector('.journey-card');
+  assert.match(await page.locator('#data-source').textContent(), /Transitous/);
+  assert.equal(await page.locator('#transitous-attribution').isVisible(), true);
+  assert.equal(await page.locator('#transitous-attribution a').count(), 3);
+  assert.equal(await page.locator('#freshness-label').textContent(), 'Neu abgerufen');
+});
+
+test('Nur Fahrplan für alle Züge führt zu einem deutlichen Echtzeithinweis', async t => {
+  const { page, baseURL } = await setup(t, { getConnections: async origin => {
+    const data = demoConnections(origin);
+    data.journeys = data.journeys.filter(j => !j.cancelled).map(j => ({ ...j, realtime: false, departureDelayMinutes: null, arrivalDelayMinutes: null, departure: j.plannedDeparture, arrival: j.plannedArrival }));
+    return data;
+  } });
+  await page.goto(baseURL);
+  await page.waitForSelector('.journey-card');
+  assert.equal(await page.locator('#coverage-notice').isVisible(), true);
+  assert.match(await page.locator('#coverage-notice').textContent(), /keine Echtzeitprognosen/);
+  assert.equal(await page.locator('.journey-status').filter({ hasText: 'Pünktlich' }).count(), 0);
+});
+
 test('Automatik fragt nach 60 Sekunden neu ab; Rückkehr aus Hintergrund aktualisiert sofort', async t => {
   let count = 0;
   const { page, baseURL } = await setup(t, { getConnections: async origin => { count++; return demoConnections(origin); } });
