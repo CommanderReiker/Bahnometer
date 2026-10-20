@@ -9,7 +9,7 @@ npm test
 npm run test:e2e
 ```
 
-Node.js >=22 und Chromium sind erforderlich. Die Browsertests verwenden `/usr/bin/chromium`, alternativ `CHROMIUM_PATH` setzen. Für einen isolierten Entwicklungsserver im selben Verzeichnis `npm start` verwenden (Port 3000). Im HA-Container startet dagegen `node addon.js` auf Port 8099 mit Ingress-Zugriffsschutz.
+Node.js >=22 und Chromium sind erforderlich. Die Browsertests verwenden `/usr/bin/chromium`, alternativ `CHROMIUM_PATH` setzen. Für einen isolierten Entwicklungsserver im selben Verzeichnis `npm start` verwenden (Port 3000). Im HA-Container startet dagegen `node addon.js` auf Port 8099 mit Ingress- und LAN-Zugriffsschutz.
 
 ## Aufbau
 
@@ -32,15 +32,15 @@ bahnometer/
 Vom Repository-Stamm:
 
 ```sh
-docker build --build-arg BUILD_ARCH=amd64 --build-arg BUILD_VERSION=2.0.0 -t bahnometer-ha:2.0.0-amd64 bahnometer
-docker build --platform linux/arm64 --build-arg BUILD_ARCH=aarch64 --build-arg BUILD_VERSION=2.0.0 -t bahnometer-ha:2.0.0-aarch64 bahnometer
+docker build --build-arg BUILD_ARCH=amd64 --build-arg BUILD_VERSION=2.1.0 -t bahnometer-ha:2.1.0-amd64 bahnometer
+docker build --platform linux/arm64 --build-arg BUILD_ARCH=aarch64 --build-arg BUILD_VERSION=2.1.0 -t bahnometer-ha:2.1.0-aarch64 bahnometer
 ```
 
 Der feste offizielle Node-24-Image-Digest enthält beide Architekturen. Die Installation läuft auf der Build-Architektur, die Laufzeitbasis entspricht der Zielplattform. Produktionsabhängigkeiten sind JavaScript/Daten; Installationsskripte sind deaktiviert. Das ARM64-Image kann deshalb ohne ARM-Emulation gebaut werden. Das belegt nicht seine Ausführung auf physischer ARM-Hardware.
 
 Zur lokalen Container-Ausführung `/data/options.json` bereitstellen, z.B. `{"data_source":"transitous","default_origin":"home"}`. Supervisor erstellt die Datei als root mit 0600. Nach dem Lesen läuft der Server als UID/GID 1000. Fehlende oder ungültige Optionen führen zum sichtbaren Startfehler.
 
-UI/API-Zugriffe sind nur von `172.30.32.2` (Supervisor-Ingress) erlaubt; `/api/health` zusätzlich von Loopback. Ein Port-Mapping auf den Entwicklerhost allein reicht daher nicht zum funktionalen Test. `test/ingress-proxy.js` bildet Unterpfad und same-origin-iframe lokal nach. Er bietet keine Authentifizierung und wird nicht ins Produktionsimage kopiert.
+UI/API-Zugriffe sind von `172.30.32.2` (Supervisor-Ingress) sowie privaten/lokalen Socket-Quelladressen erlaubt (`allowLan: true` in `addon.js`). Öffentliche Quelladressen werden abgewiesen; Forwarding-Header gewähren keine Berechtigung. Der HTTP-Server lauscht auf `0.0.0.0:8099`, Docker exponiert TCP 8099 und `config.yaml` bildet `8099/tcp` auf Host-Port 8099 ab. Kein Host-Netzwerk und keine TLS-Terminierung im Container. Für einen lokalen Test `-p 127.0.0.1:8099:8099/tcp` verwenden; für reinen Ingress-Betrieb in HA den Host-Port leeren. `test/ingress-proxy.js` bildet Unterpfad und same-origin-iframe lokal nach. Er bietet keine Authentifizierung und wird nicht ins Produktionsimage kopiert.
 
 In einer proxied Cloud beim Build optional `--secret id=proxy_ca,src="$CODEX_PROXY_CERT"` ergänzen. Der optionale BuildKit-Mount erweitert nur für npm die CA-Vertrauenskette; das Zertifikat wird nicht ins Image kopiert. Bei einem Container-Test eine benötigte Proxy-CA read-only mounten und `NODE_EXTRA_CA_CERTS` setzen. TLS-Prüfung bleibt aktiv. Normales HA OS benötigt diese Cloud-Optionen nicht.
 
@@ -48,6 +48,7 @@ In einer proxied Cloud beim Build optional `--secret id=proxy_ca,src="$CODEX_PRO
 
 - Unit-/HTTP-Tests für HA-Optionen, Ingress-Quelladressen statt gefälschter Header, RE/RB und Aktualität.
 - Browser: Mobil-/iPad-Ansicht, Standort, Refresh, Ausfälle, Offlinezustand, Quellenhinweise.
+- Direkter LAN-Zugriff ohne Präfix: API, Ressourcen, Navigation, Refresh und Service-Worker-Scope.
 - HA-Ingress im same-origin-iframe: Assets, API, Optionen, Manifest und Worker bleiben unter `/api/hassio_ingress/.../`.
 - Builds für AMD64/ARM64; AMD64-Laufzeittest mit root-eigenem 0600-Optionsfile, UID/GID 1000, schreibgeschütztem Anwendungscode, echtem Gateway-Quell-IP-Test, Browser-Demo und Neustart.
 

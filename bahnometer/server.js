@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, extname, sep } from 'node:path';
 import { createRailService } from './lib/rail.js';
 import { createDataProvider } from './lib/data-provider.js';
+import { isLanAddress } from './lib/lan-access.js';
 import metadata from './package.json' with { type: 'json' };
 
 const publicDir = resolve(fileURLToPath(new URL('./public/', import.meta.url)));
@@ -15,7 +16,7 @@ const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'",
 };
 
-export function createApp({ dataSource = process.env.RAIL_PROVIDER || 'transitous', defaultOrigin = 'home', rail = createRailService(createDataProvider({ mode: dataSource })), logger = console, ingressOnly = false, ingressGateway = '172.30.32.2' } = {}) {
+export function createApp({ dataSource = process.env.RAIL_PROVIDER || 'transitous', defaultOrigin = 'home', rail = createRailService(createDataProvider({ mode: dataSource })), logger = console, ingressOnly = false, allowLan = false, ingressGateway = '172.30.32.2' } = {}) {
   let requestsInWindow = 0;
   let windowStart = Date.now();
   return createServer(async (req, res) => {
@@ -30,7 +31,7 @@ export function createApp({ dataSource = process.env.RAIL_PROVIDER || 'transitou
       const peer = req.socket.remoteAddress?.replace(/^::ffff:/, '');
       const isLocalHealth = url.pathname === '/api/health' && ['127.0.0.1', '::1'].includes(peer);
       // Trust the socket peer, never spoofable forwarding or X-Ingress-Path headers.
-      if (ingressOnly && peer !== ingressGateway && !isLocalHealth) return json(403, { error: 'INGRESS_REQUIRED', message: 'Bitte Bahnometer über Home Assistant öffnen.' });
+      if (ingressOnly && peer !== ingressGateway && !isLocalHealth && !(allowLan && isLanAddress(peer))) return json(403, { error: 'INGRESS_REQUIRED', message: 'Bitte Bahnometer über Home Assistant öffnen.' });
       if (url.pathname === '/api/health') return json(200, { status: 'ok', version: metadata.version, provider: dataSource });
       if (url.pathname === '/api/config') return json(200, { defaultOrigin, refreshIntervalSeconds: 60, dataSource });
       if (url.pathname === '/api/connections') {

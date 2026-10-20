@@ -1,5 +1,5 @@
 name: Bahnometer
-version: "2.0.0"
+version: "2.1.0"
 slug: bahnometer
 description: RE und RB zwischen Ingolstadt und Pfaffenhofen mit Echtzeitdaten von Transitous.
 url: https://github.com/CommanderReiker/Bahnometer
@@ -10,6 +10,10 @@ startup: application
 boot: auto
 ingress: true
 ingress_port: 8099
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: Optionaler HTTP-Zugriff im lokalen Netzwerk
 panel_icon: mdi:train
 panel_title: Bahnometer
 panel_admin: false

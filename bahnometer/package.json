@@ -1,6 +1,6 @@
 {
   "name": "bahnometer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "description": "Aktuelle RE- und RB-Verbindungen zwischen Ingolstadt und Pfaffenhofen (Ilm).",

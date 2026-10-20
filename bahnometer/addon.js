@@ -9,7 +9,7 @@ try {
     process.setgid(1000);
     process.setuid(1000);
   }
-  startServer({ port: 8099, ingressOnly: true, dataSource: options.data_source, defaultOrigin: options.default_origin });
+  startServer({ port: 8099, ingressOnly: true, allowLan: true, dataSource: options.data_source, defaultOrigin: options.default_origin });
 } catch (error) {
   console.error('Bahnometer konnte nicht starten:', error.message);
   process.exitCode = 1;

@@ -2,7 +2,7 @@
 
 ## Installation
 
-Bahnometer wird im HA-App-Store installiert und über „Weboberfläche öffnen“ oder den optionalen Seitenleisteneintrag geöffnet. „Beim Booten starten“ und „Watchdog“ aktivieren. Der interne Port 8099 wird nicht als Host-Port freigegeben.
+Bahnometer wird im HA-App-Store installiert und über „Weboberfläche öffnen“ oder den optionalen Seitenleisteneintrag geöffnet. „Beim Booten starten“ und „Watchdog“ aktivieren. Optional ist zusätzlich HTTP im LAN über Host-Port 8099 verfügbar.
 
 Bei einem privaten Repository den Ordner `bahnometer` aus der GitHub-ZIP in die Samba-Freigabe `local_apps` (älter: `addons`) kopieren, sodass `local_apps/bahnometer/config.yaml` vorhanden ist. Store neu laden, unter „Lokale Apps“ installieren. Eine vollständige Anleitung steht in der [Repository-README](https://github.com/CommanderReiker/Bahnometer#readme).
 
@@ -19,6 +19,22 @@ default_origin: home
 - `default_origin`: `home` = Ingolstadt Hbf → Pfaffenhofen (Ilm), `work` = Gegenrichtung. Gilt ohne gültige gespeicherte Auswahl oder erkannten Standort.
 
 Konfiguration speichern und App neu starten. Manuelle Browserauswahl und Standorterkennung haben Vorrang vor dem Standard.
+
+## Optionaler direkter LAN-Zugriff
+
+Ab Version **2.1.0** ist Container-Port `8099/tcp` standardmäßig auf Host-Port **8099** abgebildet. Auf einem Gerät im selben lokalen Netzwerk öffnen:
+
+```text
+http://IP-DEINES-HA:8099/
+```
+
+Beispiel: `http://192.168.178.50:8099/`. Kein Ingress-Pfadpräfix hinzufügen. Oberfläche, API, Ressourcen und Navigation funktionieren direkt ab `/`.
+
+Unter **Einstellungen → Apps → Bahnometer → Konfiguration → Netzwerk** lässt sich der Host-Port ändern oder das Portfeld leeren, um den direkten Zugriff abzuschalten. Falls nötig „Deaktivierte Ports anzeigen“ einblenden. Speichern und App neu starten. Bei einem Update die Portzuordnung dort prüfen; Supervisor kann bestehende Netzwerk-Einstellungen beibehalten. Ist 8099 bereits belegt, einen anderen freien Host-Port verwenden und die URL entsprechend anpassen.
+
+**Weboberfläche öffnen**, Seitenleiste und Ingress funktionieren weiterhin über die bestehende HA-Anmeldung. Der direkte LAN-Zugang verwendet HTTP und hat **keine HA-Anmeldung**; er ist für ein vertrauenswürdiges Heimnetz gedacht. Der Server akzeptiert dafür private/lokale Quelladressen und vertraut keinen weitergeleiteten IP-Headern. Keine Router-Portweiterleitung oder öffentliche Proxy-/Tunnel-Freigabe für 8099 einrichten: Ein vorgeschalteter Proxy kann die ursprüngliche Quelladresse verdecken. Die App richtet keine Internetfreigabe ein.
+
+Über die direkte HTTP-LAN-Adresse stehen Browser-Standortabfrage und Service Worker in der Regel nicht zur Verfügung. Zuhause/Arbeit manuell auswählen; für Standorterkennung weiterhin den bestehenden HA-Zugang über HTTPS nutzen.
 
 ## Telefon und Standort
 
@@ -44,7 +60,7 @@ App-Protokolle prüfen. Ungültige Optionswerte verhindern den Start mit einer k
 
 ### Oberfläche bleibt leer
 
-„Weboberfläche öffnen“ benutzen. `http://PI-IP:8099` ist keine freigegebene Benutzeradresse. Nach Updates die HA-Ansicht vollständig neu laden. Assets, API und Service Worker sind auf den Ingress-Unterpfad begrenzt.
+„Weboberfläche öffnen“ oder im LAN `http://PI-IP:8099/` benutzen. Bei direktem Zugriff die Netzwerk-Portzuordnung der App, Neustart und freien Host-Port prüfen. Nach Updates die Ansicht vollständig neu laden. Assets und API verwenden jeweils die Basis des Zugriffswegs; unter Ingress bleiben sie im Ingress-Unterpfad.
 
 ### Keine Daten oder keine Verbindungen
 

@@ -8,7 +8,7 @@ RUN --mount=type=secret,id=proxy_ca \
     npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f
-ARG BUILD_VERSION=2.0.0
+ARG BUILD_VERSION=2.1.0
 ARG BUILD_ARCH=amd64
 LABEL io.hass.name="Bahnometer" \
       io.hass.description="RE und RB zwischen Ingolstadt und Pfaffenhofen" \

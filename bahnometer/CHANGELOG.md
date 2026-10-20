@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+
+- Optionaler direkter LAN-Zugriff per HTTP auf Host-Port 8099; in HA unter Netzwerk abschaltbar.
+- Bestehender Ingress-Zugriff bleibt erhalten. LAN-Zugriff prüft lokale/private Socket-Quelladressen statt Proxy-Header.
+- Tests für LAN und Ingress einschließlich Assets, API, Navigation und Service Worker; Installationsdokumentation aktualisiert.
+
 ## 2.0.0
 
 - Home Assistant OS App (früher Add-on), lokaler Container-Build für `aarch64` und `amd64`.

@@ -15,7 +15,7 @@ before(async () => {
 after(async () => browser?.close());
 
 async function setup(t, { getConnections = async origin => demoConnections(origin), latitude = 48.7651, longitude = 11.4237, denyLocation = false, tablet = false, serviceWorkers = 'block' } = {}) {
-  const server = createApp({ rail: { getConnections }, logger: { error() {} } });
+  const server = createApp({ ingressOnly: true, allowLan: true, rail: { getConnections }, logger: { error() {} } });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const baseURL = `http://127.0.0.1:${server.address().port}`;
@@ -191,7 +191,7 @@ test('HA-Ingress im iframe: Assets, Konfiguration, Refresh, Manifest und Worker 
   const seen = [];
   const prefix = '/api/hassio_ingress/test-session/';
   let calls = 0;
-  const server = createApp({ ingressOnly: true, ingressGateway: '127.0.0.1', defaultOrigin: 'work', rail: { async getConnections(origin) { calls++; return demoConnections(origin); } } });
+  const server = createApp({ ingressOnly: true, allowLan: true, ingressGateway: '127.0.0.1', defaultOrigin: 'work', rail: { async getConnections(origin) { calls++; return demoConnections(origin); } } });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const proxy = createIngressProxy({ upstreamPort: server.address().port, prefix, onRequest: url => seen.push(url) });
@@ -220,5 +220,30 @@ test('HA-Ingress im iframe: Assets, Konfiguration, Refresh, Manifest und Worker 
   const manifest = await (await context.request.get(`${base}${prefix}manifest.webmanifest`)).json();
   assert.equal(new URL(manifest.start_url, `${base}${prefix}manifest.webmanifest`).pathname, prefix);
   await page.screenshot({ path: 'test-results/ha-ingress.png', fullPage: true });
+  assert.deepEqual(errors, []);
+});
+
+
+test('Direktes LAN ohne Präfix: Navigation, manuelle Richtung, Refresh, Manifest und Worker', async t => {
+  let calls = 0;
+  const { page, context, baseURL, errors } = await setup(t, { denyLocation: true, serviceWorkers: 'allow', getConnections: async origin => { calls++; return demoConnections(origin); } });
+  const failed = [];
+  page.on('response', response => { if (response.url().startsWith(baseURL) && response.status() >= 400) failed.push(response.url()); });
+  await page.goto(`${baseURL}/`);
+  await page.waitForSelector('.journey-card');
+  await page.locator('#work').click();
+  await page.waitForFunction(() => !document.getElementById('refresh').disabled);
+  assert.equal(await page.locator('#from-station').textContent(), 'Pfaffenhofen (Ilm)');
+  const before = calls;
+  await page.locator('#quick-refresh').click();
+  await page.waitForFunction(() => !document.getElementById('refresh').disabled);
+  assert.equal(calls, before + 1);
+  await page.locator('a[href="./"]').click();
+  await page.waitForSelector('.journey-card');
+  assert.equal(new URL(page.url()).pathname, '/');
+  assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.ready).scope), `${baseURL}/`);
+  const manifest = await (await context.request.get(`${baseURL}/manifest.webmanifest`)).json();
+  assert.equal(new URL(manifest.start_url, `${baseURL}/manifest.webmanifest`).pathname, '/');
+  assert.deepEqual(failed, []);
   assert.deepEqual(errors, []);
 });

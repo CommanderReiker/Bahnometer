@@ -40,7 +40,7 @@ Die Installation erfolgt über **Apps/Add-ons**, nicht „Geräte & Dienste“. 
 6. Im HA-App-Store über **⋮ → Nach Updates suchen / Neu laden** aktualisieren. Bahnometer erscheint unter **Lokale Apps** bzw. **Lokale Add-ons**; gegebenenfalls die Store-Seite neu laden.
 7. **Bahnometer → Installieren** öffnen. Der erste Build benötigt einige Minuten. Den Fortschritt in Home Assistant verfolgen.
 8. Standardkonfiguration beibehalten oder unten anpassen. **Beim Booten starten**, **Watchdog** und optional **In der Seitenleiste anzeigen** aktivieren.
-9. **Starten → Weboberfläche öffnen** wählen. Im Protokoll muss `Version 2.0.0 · Datenquelle: transitous` stehen.
+9. **Starten → Weboberfläche öffnen** wählen. Im Protokoll muss `Version 2.1.0 · Datenquelle: transitous` stehen.
 
 Danach kann dein Computer ausgeschaltet bleiben. Samba wird nur zum Kopieren bzw. Aktualisieren der Dateien benötigt.
 
@@ -78,6 +78,22 @@ default_origin: home
 
 Nach Änderungen **speichern und Bahnometer neu starten**. Eine im Browser gespeicherte manuelle Auswahl bzw. ein erkannter Standort hat Vorrang vor dem Standard.
 
+## Optionaler direkter LAN-Zugriff
+
+Ab Version **2.1.0** ist Container-Port `8099/tcp` standardmäßig auf Host-Port **8099** abgebildet. Auf einem Gerät im selben lokalen Netzwerk öffnen:
+
+```text
+http://IP-DEINES-HA:8099/
+```
+
+Beispiel: `http://192.168.178.50:8099/`. Kein Ingress-Pfadpräfix hinzufügen. Oberfläche, API, Ressourcen und Navigation funktionieren direkt ab `/`.
+
+Unter **Einstellungen → Apps → Bahnometer → Konfiguration → Netzwerk** lässt sich der Host-Port ändern oder das Portfeld leeren, um den direkten Zugriff abzuschalten. Falls nötig „Deaktivierte Ports anzeigen“ einblenden. Speichern und App neu starten. Bei einem Update die Portzuordnung dort prüfen; Supervisor kann bestehende Netzwerk-Einstellungen beibehalten. Ist 8099 bereits belegt, einen anderen freien Host-Port verwenden und die URL entsprechend anpassen.
+
+**Weboberfläche öffnen**, Seitenleiste und Ingress funktionieren weiterhin über die bestehende HA-Anmeldung. Der direkte LAN-Zugang verwendet HTTP und hat **keine HA-Anmeldung**; er ist für ein vertrauenswürdiges Heimnetz gedacht. Der Server akzeptiert dafür private/lokale Quelladressen und vertraut keinen weitergeleiteten IP-Headern. Keine Router-Portweiterleitung oder öffentliche Proxy-/Tunnel-Freigabe für 8099 einrichten: Ein vorgeschalteter Proxy kann die ursprüngliche Quelladresse verdecken. Die App richtet keine Internetfreigabe ein.
+
+Über die direkte HTTP-LAN-Adresse stehen Browser-Standortabfrage und Service Worker in der Regel nicht zur Verfügung. Zuhause/Arbeit manuell auswählen; für Standorterkennung weiterhin den bestehenden HA-Zugang über HTTPS nutzen.
+
 ## Bedienung und Standort
 
 - **Zuhause:** 15 km um Ingolstadt; Ingolstadt Hbf → Pfaffenhofen (Ilm).
@@ -90,7 +106,7 @@ Auf dem Telefon über die **Home-Assistant-Companion-App** oder die HA-Weboberfl
 
 Ermittelt wird die Position des gerade verwendeten Geräts. Auf einem Desktop ist das nicht automatisch die Position deines Telefons. Die HA-Companion-`device_tracker` werden bisher nicht ausgelesen. Exakte Koordinaten bleiben im Browser; an den Server geht nur die Fahrtrichtung.
 
-Ingress verwendet die vorhandene HA-Anmeldung und deren HTTPS-/Remote-Zugang. **Kein zusätzlicher Port wird ins LAN geöffnet.** Für unterwegs deinen bereits eingerichteten sicheren HA-Zugang verwenden. Eine Ingress-Sitzungsadresse ist kein dauerhafter öffentlicher PWA-Link; empfohlen ist der Zugriff über HA.
+Ingress verwendet die vorhandene HA-Anmeldung und deren HTTPS-/Remote-Zugang. Die optionale LAN-Portfreigabe ist davon unabhängig und kann abgeschaltet werden. Für unterwegs deinen bereits eingerichteten sicheren HA-Zugang verwenden. Eine Ingress-Sitzungsadresse ist kein dauerhafter öffentlicher PWA-Link; empfohlen ist der Zugriff über HA.
 
 ## Datenqualität
 
