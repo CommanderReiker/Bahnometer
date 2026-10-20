@@ -38,3 +38,15 @@ test('Upstreamfehler ist 502 statt leere oder erfundene Verbindungen; Wiederholu
   fail = false;
   assert.equal((await fetch(url)).status, 200);
 });
+
+test('Bahn-Zugriffssperre wird für Nutzer als HTTP 403 / OPS_BLOCKED erkennbar', async t => {
+  const server = createApp({ rail: { async getConnections() { throw Object.assign(new Error('Forbidden'), { code: 'BAHN_ACCESS_BLOCKED' }); } }, logger: { error() {} } });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => server.close());
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/connections?origin=home`);
+  assert.equal(response.status, 502);
+  const data = await response.json();
+  assert.equal(data.error, 'BAHN_ACCESS_BLOCKED');
+  assert.match(data.message, /OPS_BLOCKED/);
+});

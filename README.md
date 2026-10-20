@@ -38,15 +38,17 @@ Koordinaten werden ausschließlich im Browser ausgewertet und weder gespeichert 
 
 ## Bahn-Daten und Aktualität
 
-Der Server verwendet [`db-vendo-client`](https://github.com/public-transport/db-vendo-client), Profil `dbweb`, und damit die **nicht offiziell freigegebene Web-Schnittstelle von bahn.de**:
+Der Server verwendet [`db-vendo-client`](https://github.com/public-transport/db-vendo-client), zunächst Profil `dbweb`, und damit die **nicht offiziell freigegebene Web-Schnittstelle von bahn.de**:
 
 ```text
 POST https://int.bahn.de/web/api/angebote/fahrplan
 ```
 
-Für dieses Profil wird kein API-Schlüssel benötigt. Schnittstelle und Zugriff können sich ändern oder blockiert werden. Vor einem öffentlichen oder dauerhaften Betrieb sind die Nutzungsbedingungen der Datenquelle zu prüfen. Eine Alternative mit vertraglich zugesichertem Datenzugang kann hinter `createRailService()` eingebunden werden; die Oberfläche ist von der Datenquelle getrennt.
+Bei HTTP 403 versucht der Server einmal das Bibliotheksprofil `dbnav` über `https://app.services-bahn.de/mob/angebote/fahrplan`. Danach bleibt er zehn Minuten bei diesem Zugang, statt den blockierten Web-Endpunkt jede Minute erneut aufzurufen. Auch dieser Zugang kann gesperrt sein; dann zeigt die App ausdrücklich `HTTP 403 / OPS_BLOCKED`. `BAHN_PROFILE=auto` ist der Standard; mit `dbweb` oder `dbnav` lässt sich ein Profil fest auswählen. Der tatsächliche Zugang steht im API-Antwortfeld `source`.
 
-Die Suche erlaubt nur Regionalverkehr und keine Umstiege. Der Server prüft zusätzlich den tatsächlichen Liniennamen **RE/RB** sowie beide Stationskennungen. Andere regionale Zugmarken, ICE, IC, S-Bahn und Busse werden nicht angezeigt. Das Suchfenster beginnt 15 Minuten vor der aktuellen Zeit, damit verspätete Züge mit bereits vergangener Planabfahrt noch berücksichtigt werden. Es werden bis zu zehn passende Verbindungen aus den gelieferten Suchergebnissen dargestellt. Die Suche ist keine vollständige Bahnhofstafel; bereits aus dem Fahrplan entfernte Ausfälle können vom Anbieter fehlen.
+Für beide Profile wird kein API-Schlüssel benötigt. Schnittstelle und Zugriff können sich ändern oder blockiert werden. Vor einem öffentlichen oder dauerhaften Betrieb sind die Nutzungsbedingungen der Datenquelle zu prüfen. Eine Alternative mit vertraglich zugesichertem Datenzugang kann hinter `createRailService()` eingebunden werden; die Oberfläche ist von der Datenquelle getrennt.
+
+Die Suche erlaubt nur Regionalverkehr und keine Umstiege. Der Server prüft zusätzlich die Zugkategorie **RE/RB** sowie beide Stationskennungen. Die Bahn kann im Feld `name` nur eine Zugnummer liefern; Kategorie und Linienbezeichnung werden deshalb aus den separaten Feldern `kurzText` und `mittelText` ausgewertet. Andere regionale Zugmarken, ICE, IC, S-Bahn und Busse werden nicht angezeigt. Das Suchfenster beginnt 15 Minuten vor der aktuellen Zeit, damit verspätete Züge mit bereits vergangener Planabfahrt noch berücksichtigt werden. Es werden bis zu zehn passende Verbindungen aus den gelieferten Suchergebnissen dargestellt. Die Suche ist keine vollständige Bahnhofstafel; bereits aus dem Fahrplan entfernte Ausfälle können vom Anbieter fehlen.
 
 - Jede neue Abfrage geht an die Bahn. Lediglich gleichzeitig laufende Abfragen derselben Richtung werden zusammengeführt; es gibt keinen abgeschlossenen Antwortcache.
 - Der Anbieter liefert keinen verlässlichen Aktualisierungszeitpunkt seiner Prognosen. **„Zuletzt abgerufen“ zeigt unseren erfolgreichen Abruf**, nicht das Alter der zugrunde liegenden Bahn-Meldung. Eine minutengenaue Garantie ist nicht möglich.
@@ -54,11 +56,11 @@ Die Suche erlaubt nur Regionalverkehr und keine Umstiege. Der Server prüft zus�
 - Fehlende Echtzeitprognosen heißen **„Nur Fahrplan“**, nicht „pünktlich“.
 - Fehler oder ein Abrufalter über 90 Sekunden kennzeichnen die Daten als **unbestätigt**. Vorhandene Verbindungen bleiben als alter Stand sichtbar; erfolgreiche Abrufzeit und Prognosen werden nicht erfunden.
 - HTTP-Antworten der API sind `no-store`; der Service Worker speichert nur die App-Hülle. Offline werden keine gespeicherten Bahn-Antworten als aktuell ausgegeben.
-- Eine globale Grenze von 20 API-Anfragen pro Minute und eine Anfragedeadline von 12 Sekunden schützen den kleinen privaten Server. Für viele gleichzeitige Nutzer wäre ein zentraler Aktualisierungsdienst mit abgestimmten Anbieterlimits erforderlich.
+- Eine globale Grenze von 20 API-Anfragen pro Minute und eine gemeinsame Anfragedeadline von 16 Sekunden einschließlich eines möglichen Profilwechsels schützen den kleinen privaten Server. Für viele gleichzeitige Nutzer wäre ein zentraler Aktualisierungsdienst mit abgestimmten Anbieterlimits erforderlich.
 
 ### Netzwerk in der Codex-Cloud
 
-Die ausgehende HTTPS-Verbindung zu **`int.bahn.de`** muss in den Umgebungseinstellungen zugelassen sein. Die Domain wurde im Konfigurationsentwurf ergänzt. Die aktuelle Laufzeit hat beim Live-Test noch mit **`403 Domain forbidden`** geantwortet; die App antwortet dann ehrlich mit HTTP 502. Ein erfolgreicher Live-Abruf ist deshalb noch nicht bestätigt. Die Netzwerkänderung muss über die Umgebungseinstellungen aktiviert werden; ein gespeicherter Entwurf allein ändert den laufenden Netzwerkzugriff nicht.
+Die ausgehenden HTTPS-Verbindungen zu **`int.bahn.de`** und für das alternative Profil zu **`app.services-bahn.de`** müssen in den Umgebungseinstellungen zugelassen sein. Beide Domains stehen im Konfigurationsentwurf. Am 20.10.2026 lieferte der korrigierte Web-Zugang hier echte RE-/RB-Verbindungen; der alternative Zugang war zu diesem Zeitpunkt durch die Cloud-Netzwerkregel noch blockiert und ist live noch nicht bestätigt. Ein gespeicherter Entwurf allein ändert den laufenden Netzwerkzugriff nicht. Änderungen in den Umgebungseinstellungen prüfen und speichern, anschließend die Umgebung veröffentlichen.
 
 Danach den betroffenen Abruf erneut ausführen:
 
@@ -79,6 +81,10 @@ npm test
 npm run test:e2e
 ```
 
-Die 14 Unit-/Serverprüfungen testen Standortgrenzen, Stationskennungen, RE/RB-Filter, Verspätungen, Ausfälle, fehlende Echtzeitdaten, frische Folgeabrufe und die HTTP-Schnittstelle. Die neun Browsertests prüfen die mobile/iPad-Darstellung, beide Standorte, manuelle Richtung, einen neu gemeldeten Ausfall, Fehler und Wiederholung, alte Zeitstempel, automatische Abfragen und Offline-Verhalten des Service Workers. Die Tests verwenden ausdrücklich Testdaten und beweisen nicht die Erreichbarkeit oder Aktualität der echten Bahn-API.
+Die Unit-/Serverprüfungen testen Standortgrenzen, Stationskennungen, die reale DB-Feldbelegung, RE/RB-Filter, Verspätungen, Ausfälle, fehlende Echtzeitdaten, frische Folgeabrufe, Profilwechsel bei HTTP 403 und die HTTP-Schnittstelle. Die neun Browsertests prüfen die mobile/iPad-Darstellung, beide Standorte, manuelle Richtung, einen neu gemeldeten Ausfall, Fehler und Wiederholung, alte Zeitstempel, automatische Abfragen und Offline-Verhalten des Service Workers. Die Tests verwenden ausdrücklich Testdaten und beweisen nicht die Erreichbarkeit oder Aktualität der echten Bahn-API auf einem anderen Internetzugang.
+
+### Unter Windows aktualisieren
+
+Bei einer ZIP-Installation den laufenden Server mit `Strg+C` beenden, die aktuelle ZIP von GitHub in einen neuen Ordner entpacken und dort PowerShell öffnen. Dann `npm.cmd ci` und `npm.cmd start` ausführen. Die vorhandene Node.js-Installation kann weiterverwendet werden. Den Browser anschließend neu laden. Eine auf dem eigenen Rechner gemeldete `OPS_BLOCKED`-Antwort kommt von der Bahn; die Netzwerkfreigaben der Codex-Cloud ändern diese lokale Sperre nicht.
 
 Für die Browsertests wird ein Chromium benötigt. In dieser Umgebung liegt es unter `/usr/bin/chromium`. Bei abweichender Installation `CHROMIUM_PATH` setzen. Screenshots entstehen unter `test-results/` und sind nicht versioniert.

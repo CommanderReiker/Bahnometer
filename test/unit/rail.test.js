@@ -35,6 +35,16 @@ test('Verspätungen, Ankunftsverspätung und Gleisänderung bleiben erhalten', (
   assert.equal(result.realtime, true);
 });
 
+test('Separate RE/RB-Kategorie mit numerischem Zugnamen wird nicht herausgefiltert', () => {
+  const result = normalize([
+    makeLeg({ line: { name: '59410', productName: 'RE', mode: 'train' } }),
+    makeLeg({ tripId: 'rb-number', line: { name: '59160', productName: 'RB', mode: 'train' } }),
+    makeLeg({ tripId: 'ice-number', line: { name: '123', productName: 'ICE', mode: 'train' } }),
+    makeLeg({ tripId: 'unknown-number', line: { name: '456', product: 'regional' } }),
+  ]);
+  assert.deepEqual(result.map(connection => connection.line), ['RE 59410', 'RB 59160']);
+});
+
 test('Null-Prognose wird nicht als pünktlich interpretiert', () => {
   const [result] = normalize([makeLeg({ departureDelay: null, arrivalDelay: null })]);
   assert.equal(result.departureDelayMinutes, null);

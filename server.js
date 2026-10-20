@@ -36,6 +36,7 @@ export function createApp({ rail = createRailService(createBahnProvider()), logg
           return json(200, await rail.getConnections(origin));
         } catch (error) {
           logger.error('Bahn-Abfrage fehlgeschlagen:', error.name, error.code || error.message);
+          if (error.code === 'BAHN_ACCESS_BLOCKED') return json(502, { error: 'BAHN_ACCESS_BLOCKED', message: 'Die Bahn blockiert den Abruf von diesem Internetzugang (HTTP 403 / OPS_BLOCKED). Bitte später erneut versuchen. Bei einer dauerhaften Sperre wird ein anderer Datenzugang benötigt.' });
           return json(502, { error: 'UPSTREAM_UNAVAILABLE', message: 'Die Bahn-Daten sind gerade nicht erreichbar. Bitte erneut aktualisieren. Vorhandene Anzeigen sind nicht mehr bestätigt.' });
         }
       }
