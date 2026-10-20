@@ -1,6 +1,10 @@
 import { PLACES, opposite, REFRESH_MS, detectPlace, timeLabel, dateLabel, departureLabel, isStale } from './domain.js';
 import { demoConnections } from './demo.js';
 
+// The module URL includes the Supervisor ingress prefix. Never send requests to
+// the Home Assistant root or derive a session path from untrusted headers.
+const APP_BASE = new URL('./', import.meta.url);
+
 const $ = id => document.getElementById(id);
 const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const escape = text => String(text ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
@@ -94,7 +98,7 @@ async function refreshConnections() {
     if (state.demo) {
       data = demoConnections(origin);
     } else {
-      const response = await fetch(`/api/connections?origin=${origin}`, { cache: 'no-store', signal: controller.signal, headers: { Accept: 'application/json' } });
+      const response = await fetch(new URL(`api/connections?origin=${origin}`, APP_BASE), { cache: 'no-store', signal: controller.signal, headers: { Accept: 'application/json' } });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || 'Aktuelle Bahn-Daten konnten nicht geladen werden.');
       data = body;
@@ -252,7 +256,17 @@ setInterval(() => {
   }
 }, 1000);
 
-updateRoute();
-refreshConnections();
-if (state.locationMode === 'auto' && !state.demo) locate();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* App also works without offline support. */ });
+async function bootstrap() {
+  try {
+    const response = await fetch(new URL('api/config', APP_BASE), { cache: 'no-store' });
+    if (response.ok) {
+      const config = await response.json();
+      if (!['home', 'work'].includes(savedOrigin) && ['home', 'work'].includes(config.defaultOrigin)) state.origin = config.defaultOrigin;
+    }
+  } catch { /* The connection request below reports network errors to the user. */ }
+  updateRoute();
+  refreshConnections();
+  if (state.locationMode === 'auto' && !state.demo) locate();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register(new URL('sw.js', APP_BASE), { scope: APP_BASE.pathname }).catch(() => { /* App also works without offline support. */ });
+}
+bootstrap();

@@ -5,6 +5,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium, devices } from 'playwright';
 import { createApp } from '../server.js';
 import { demoConnections } from '../public/demo.js';
+import { createIngressProxy } from './ingress-proxy.js';
 
 let browser;
 before(async () => {
@@ -184,4 +185,40 @@ test('Service Worker cached nur App-Hülle; offline entstehen keine bestätigten
   assert.equal(await page.locator('.journey-card').count(), 0);
   assert.match(await page.locator('#freshness-label').textContent(), /fehlgeschlagen/);
   assert.equal(await page.evaluate(async () => (await Promise.all((await caches.keys()).map(async key => (await (await caches.open(key)).keys()).map(request => new URL(request.url).pathname)))).flat().some(path => path.startsWith('/api/'))), false);
+});
+
+test('HA-Ingress im iframe: Assets, Konfiguration, Refresh, Manifest und Worker bleiben unter dem Prefix', async t => {
+  const seen = [];
+  const prefix = '/api/hassio_ingress/test-session/';
+  let calls = 0;
+  const server = createApp({ ingressOnly: true, ingressGateway: '127.0.0.1', defaultOrigin: 'work', rail: { async getConnections(origin) { calls++; return demoConnections(origin); } } });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const proxy = createIngressProxy({ upstreamPort: server.address().port, prefix, onRequest: url => seen.push(url) });
+  proxy.listen(0, '127.0.0.1');
+  await once(proxy, 'listening');
+  const context = await browser.newContext({ ...devices['iPhone 13'], serviceWorkers: 'allow' });
+  t.after(async () => { await context.close(); await new Promise(resolve => proxy.close(resolve)); await new Promise(resolve => server.close(resolve)); });
+  await context.addInitScript(() => Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition(_success, failure) { failure({ code: 1 }); } } }));
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const base = `http://127.0.0.1:${proxy.address().port}`;
+  await page.goto(`${base}/ha`);
+  const frame = page.frameLocator('iframe');
+  await frame.locator('.journey-card').first().waitFor();
+  assert.equal(await frame.locator('#from-station').textContent(), 'Pfaffenhofen (Ilm)');
+  await frame.locator('#quick-refresh').click();
+  await page.waitForFunction(() => !document.querySelector('iframe').contentDocument.getElementById('refresh').disabled);
+  assert.equal(calls, 2);
+  assert.ok(seen.some(url => url === `${prefix}styles.css`));
+  assert.ok(seen.some(url => url === `${prefix}api/config`));
+  assert.ok(seen.some(url => url === `${prefix}api/connections?origin=work`));
+  assert.equal(seen.some(url => /^\/(api\/(connections|config)|styles\.css|app\.js|sw\.js)/.test(url)), false);
+  const scope = await page.frames().find(f => f.url().includes(prefix)).evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  assert.equal(scope, `${base}${prefix}`);
+  const manifest = await (await context.request.get(`${base}${prefix}manifest.webmanifest`)).json();
+  assert.equal(new URL(manifest.start_url, `${base}${prefix}manifest.webmanifest`).pathname, prefix);
+  await page.screenshot({ path: 'test-results/ha-ingress.png', fullPage: true });
+  assert.deepEqual(errors, []);
 });

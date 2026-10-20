@@ -1,0 +1,9 @@
+node_modules
+test
+test-results
+*.log
+.npmrc
+.env
+DOCS.md
+CHANGELOG.md
+translations

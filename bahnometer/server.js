@@ -12,10 +12,10 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Permissions-Policy': 'geolocation=(self)',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'",
 };
 
-export function createApp({ rail = createRailService(createDataProvider()), logger = console } = {}) {
+export function createApp({ dataSource = process.env.RAIL_PROVIDER || 'transitous', defaultOrigin = 'home', rail = createRailService(createDataProvider({ mode: dataSource })), logger = console, ingressOnly = false, ingressGateway = '172.30.32.2' } = {}) {
   let requestsInWindow = 0;
   let windowStart = Date.now();
   return createServer(async (req, res) => {
@@ -27,7 +27,12 @@ export function createApp({ rail = createRailService(createDataProvider()), logg
     try {
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'METHOD_NOT_ALLOWED' }, { Allow: 'GET, HEAD' });
       const url = new URL(req.url, 'http://localhost');
-      if (url.pathname === '/api/health') return json(200, { status: 'ok', version: metadata.version, provider: process.env.RAIL_PROVIDER || 'transitous' });
+      const peer = req.socket.remoteAddress?.replace(/^::ffff:/, '');
+      const isLocalHealth = url.pathname === '/api/health' && ['127.0.0.1', '::1'].includes(peer);
+      // Trust the socket peer, never spoofable forwarding or X-Ingress-Path headers.
+      if (ingressOnly && peer !== ingressGateway && !isLocalHealth) return json(403, { error: 'INGRESS_REQUIRED', message: 'Bitte Bahnometer über Home Assistant öffnen.' });
+      if (url.pathname === '/api/health') return json(200, { status: 'ok', version: metadata.version, provider: dataSource });
+      if (url.pathname === '/api/config') return json(200, { defaultOrigin, refreshIntervalSeconds: 60, dataSource });
       if (url.pathname === '/api/connections') {
         const origin = url.searchParams.get('origin');
         if (!['home', 'work'].includes(origin)) return json(400, { error: 'INVALID_ORIGIN', message: 'Bitte Zuhause oder Arbeit als Start wählen.' });
@@ -61,12 +66,14 @@ export function createApp({ rail = createRailService(createDataProvider()), logg
   });
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const port = Number(process.env.PORT || 3000);
-  const server = createApp();
+export function startServer({ port = Number(process.env.PORT || 3000), ...options } = {}) {
+  const server = createApp(options);
   server.listen(port, '0.0.0.0', () => {
     console.log(`Bahnometer läuft auf Port ${port}.`);
-    console.log(`Version ${metadata.version} · Datenquelle: ${process.env.RAIL_PROVIDER || 'transitous'}`);
+    console.log(`Version ${metadata.version} · Datenquelle: ${options.dataSource || process.env.RAIL_PROVIDER || 'transitous'}`);
   });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));
+  return server;
 }
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();

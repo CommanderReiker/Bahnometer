@@ -1,6 +1,6 @@
 {
   "name": "bahnometer",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Aktuelle RE- und RB-Verbindungen zwischen Ingolstadt und Pfaffenhofen (Ilm).",
@@ -20,6 +20,7 @@
     "https-proxy-agent": "7.0.6"
   },
   "devDependencies": {
-    "playwright": "1.64.1"
+    "playwright": "1.64.1",
+    "yaml": "2.8.2"
   }
 }

@@ -1,0 +1,28 @@
+name: Validate Home Assistant app
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bahnometer
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: bahnometer/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Browser and ingress tests
+        run: |
+          export CHROMIUM_PATH="$(node -p 'require("playwright").chromium.executablePath()')"
+          npm run test:e2e
+      - name: Build AMD64 app image
+        run: docker build --build-arg BUILD_ARCH=amd64 --build-arg BUILD_VERSION="$(node -p 'require("./package.json").version')" -t bahnometer-ha:test .

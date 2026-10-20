@@ -1,118 +1,121 @@
-# Bahnometer
+# Bahnometer für Home Assistant OS
 
-Eine mobile Web-App für direkte **RE- und RB-Verbindungen zwischen Ingolstadt Hbf und Pfaffenhofen (Ilm)**. Für iPhone und iPad gestaltet und zum Home-Bildschirm hinzufügbar.
+Bahnometer ist eine **Home Assistant App (früher Add-on)** für den Raspberry Pi 5 und andere unterstützte HA-OS-Systeme. Der Webserver läuft auf dem Home-Assistant-Rechner; die Oberfläche öffnet sich über **Ingress direkt in Home Assistant**. Ein zusätzlicher Windows-/Mac-Server oder eine manuelle Node.js-Installation sind für die Nutzung nicht erforderlich.
 
-## Starten
+Die App zeigt direkte **RE-/RB-Verbindungen zwischen Ingolstadt Hbf und Pfaffenhofen (Ilm)**. Verspätungen und gemeldete Ausfälle werden rot hervorgehoben. Standardquelle ist **Transitous**, weil die direkten Bahn-Zugänge durch `OPS_BLOCKED` gesperrt werden können.
 
-Voraussetzung: Node.js 22 oder neuer.
+Die Installation erfolgt über **Apps/Add-ons**, nicht „Geräte & Dienste“. Die App stellt eine Weboberfläche bereit; eigene HA-Sensoren oder Automationen sind noch nicht enthalten.
 
-```sh
-cd /workspace/Bahnometer
-npm ci
-npm start
+## Voraussetzungen
+
+- Home Assistant OS auf dem **Raspberry Pi 5 mit 64 Bit (`aarch64`)** oder einem **x86-64-System (`amd64`)**.
+- Aktueller Supervisor **ab 2026.04**, mit dem aktuellen Docker-/BuildKit-basierten App-Build.
+- Administratorzugriff für die Installation und Internetzugang des HA-Systems für Container-Download, npm-Pakete und `api.transitous.org`.
+
+## Installation: lokal über Samba
+
+**Dieser Weg funktioniert auch mit einem privaten GitHub-Repository.** Das Repository war bei der Einrichtung ohne Anmeldung nicht erreichbar (HTTP 404). Home Assistant übernimmt deine GitHub-Anmeldung nicht automatisch. Lade die ZIP selbst angemeldet herunter und installiere die App lokal:
+
+1. [Aktuelle Repository-ZIP herunterladen](https://github.com/CommanderReiker/Bahnometer/archive/refs/heads/main.zip) und auf deinem Computer entpacken.
+2. In Home Assistant **Einstellungen → Apps → App installieren** öffnen. Bei älteren Versionen: **Einstellungen → Add-ons → Add-on-Store**.
+3. Die offizielle App **Samba share** installieren, falls sie noch nicht vorhanden ist. In ihrer Konfiguration einen eigenen Benutzernamen und ein Passwort vergeben, die Freigabe **`local_apps`** aktivieren und Samba share starten. Das sind die Zugangsdaten für die Dateifreigabe, nicht deine HA-Anmeldung.
+4. Die Freigabe auf dem Computer öffnen:
+   - **Windows:** Im Explorer `\\IP-DEINES-HA\local_apps`, beispielsweise `\\192.168.178.50\local_apps`.
+   - **macOS:** Finder → **Gehe zu → Mit Server verbinden**, dann `smb://IP-DEINES-HA/local_apps`.
+   - Ältere Samba-Versionen verwenden den Namen **`addons`**. Aktuelle Versionen unterstützen auch diesen alten Namen.
+5. **Nur den Unterordner `bahnometer`** aus der entpackten ZIP in die Freigabe kopieren:
+
+   ```text
+   local_apps/
+   └── bahnometer/
+       ├── config.yaml
+       ├── Dockerfile
+       ├── addon.js
+       ├── package.json
+       ├── lib/
+       └── public/
+   ```
+
+   Die Datei muss direkt unter `local_apps/bahnometer/config.yaml` liegen. Nicht den ganzen äußeren Ordner `Bahnometer-main` kopieren. Ein `node_modules`-Ordner wird nicht benötigt.
+6. Im HA-App-Store über **⋮ → Nach Updates suchen / Neu laden** aktualisieren. Bahnometer erscheint unter **Lokale Apps** bzw. **Lokale Add-ons**; gegebenenfalls die Store-Seite neu laden.
+7. **Bahnometer → Installieren** öffnen. Der erste Build benötigt einige Minuten. Den Fortschritt in Home Assistant verfolgen.
+8. Standardkonfiguration beibehalten oder unten anpassen. **Beim Booten starten**, **Watchdog** und optional **In der Seitenleiste anzeigen** aktivieren.
+9. **Starten → Weboberfläche öffnen** wählen. Im Protokoll muss `Version 2.0.0 · Datenquelle: transitous` stehen.
+
+Danach kann dein Computer ausgeschaltet bleiben. Samba wird nur zum Kopieren bzw. Aktualisieren der Dateien benötigt.
+
+## Alternative: Repository-URL im Store
+
+Wenn das Repository **öffentlich ohne GitHub-Anmeldung erreichbar** ist:
+
+1. Den HA-App-Store öffnen, **⋮ → Repositories** wählen und die folgende URL hinzufügen:
+
+   ```text
+   https://github.com/CommanderReiker/Bahnometer
+   ```
+
+2. Den Store aktualisieren und **Bahnometer → Installieren** auswählen.
+3. Autostart, Watchdog und optional Seitenleiste aktivieren; starten und **Weboberfläche öffnen**.
+
+Ein privates Repository kann HA so nicht ohne zusätzliche Authentifizierung klonen. Dafür ist die lokale Installation beschrieben; du musst es nicht öffentlich machen.
+
+## Konfiguration
+
+In der Home-Assistant-App-Konfiguration:
+
+```yaml
+data_source: transitous
+default_origin: home
 ```
 
-Der Node-Server lauscht auf Port **3000** auf allen Interfaces. `PORT` kann den Port ändern. Für Entwicklung mit Server-Neustarts: `npm run dev`. Es gibt keinen separaten Frontend-Build. HTML, CSS und Browser-Module werden direkt ausgeliefert.
-
-Auf einem eigenen Rechner verwendet man das jeweilige Checkout-Verzeichnis statt `/workspace/Bahnometer`. Die App benötigt einen laufenden Node-Server, kein rein statisches Hosting.
-
-## Auf iPhone und iPad verwenden
-
-1. Den Server hinter einer **HTTPS-Adresse** betreiben, zum Beispiel über einen Hostinganbieter mit Node-Unterstützung und TLS-Reverse-Proxy. Deployment und Domain sind in diesem Repository vorbereitet, aber noch nicht eingerichtet. Der Proxy leitet alle Pfade an denselben Node-Server weiter.
-2. Die HTTPS-Adresse in Safari öffnen und den Standort freigeben. Alternativ Zuhause oder Arbeit manuell wählen.
-3. In Safari über **Teilen → Zum Home-Bildschirm** hinzufügen.
-4. Vor dem Losgehen **Aktualisieren** drücken. Bei sichtbarer App wird zusätzlich alle 60 Sekunden neu abgefragt. Beim Zurückkehren aus dem Hintergrund wird sofort erneut geladen.
-
-Ein unverschlüsselter Zugriff über die LAN-IP eines Computers reicht für die Standortfreigabe auf iOS nicht aus. Laufende Hintergrundabfragen oder Push-Mitteilungen enthält diese Version nicht. Die App ist noch nicht auf einem physischen iOS-Gerät verifiziert; die mobilen Browsertests verwenden Chromium.
-
-## Standort und Fahrtrichtung
-
-| Erkannter Bereich | Startbahnhof | Zielbahnhof |
+| Option | Werte | Bedeutung |
 | --- | --- | --- |
-| Zuhause: 15 km um Ingolstadt (48.7651, 11.4237) | Ingolstadt Hbf, EVA 8000183 | Pfaffenhofen (Ilm), EVA 8004781 |
-| Arbeit: 10 km um Pfaffenhofen (48.5306, 11.5050) | Pfaffenhofen (Ilm), EVA 8004781 | Ingolstadt Hbf, EVA 8000183 |
+| `data_source` | `transitous` | Empfohlener Standard: offene Fahrplan- und Echtzeitdaten. |
+| | `bahn` | Optionaler direkter Bahn-Zugang; kann gesperrt werden. |
+| | `auto` | Bahn versuchen, bei erkannter Sperre zu Transitous wechseln. |
+| `default_origin` | `home` | Ohne gültige gespeicherte Auswahl oder erkannten Standort ab Ingolstadt Hbf starten. |
+| | `work` | Unter denselben Bedingungen ab Pfaffenhofen (Ilm) starten. |
 
-Die Radien sind bewusst ein erster Standard für „Raum Ingolstadt“ und „Raum Pfaffenhofen“. Sie stehen in `public/domain.js`. Eine Position wird nur übernommen, wenn auch ihr gemeldeter Genauigkeitskreis in der Region liegt. Außerhalb, bei ungenauen Positionen oder ohne Freigabe bleibt die manuelle Wahl verfügbar. Manuell gewählte Fahrtrichtungen bleiben beim nächsten Öffnen erhalten; mit „Standort nutzen“ wird die automatische Erkennung wieder aktiviert.
+Nach Änderungen **speichern und Bahnometer neu starten**. Eine im Browser gespeicherte manuelle Auswahl bzw. ein erkannter Standort hat Vorrang vor dem Standard.
 
-Koordinaten werden ausschließlich im Browser ausgewertet und weder gespeichert noch zum Server geschickt. Der Server erhält nur `origin=home` oder `origin=work`. Die App lädt keine externen Schriften, Karten, Tracker oder Analysedienste.
+## Bedienung und Standort
 
-## Aktuelle Datenquelle: Transitous
+- **Zuhause:** 15 km um Ingolstadt; Ingolstadt Hbf → Pfaffenhofen (Ilm).
+- **Arbeit:** 10 km um Pfaffenhofen; Fahrt in die Gegenrichtung.
+- Nur direkte RE/RB, keine ICE/IC, S-Bahn, Busse oder Umstiege.
+- **Jetzt aktualisieren** fragt erneut ab. Bei sichtbarer App erfolgt zusätzlich alle **60 Sekunden** ein Abruf.
+- Im Hintergrund pausiert die Browser-Aktualisierung. Der Server und HA-Watchdog laufen weiter, fragen aber keine Abfahrten dauerhaft ab.
 
-Seit Version **1.1.0** verwendet die App standardmäßig **Transitous**. Ein alter Wert wie `BAHN_PROFILE=dbnav` wählt die Bahn-Schnittstelle nicht mehr als Hauptquelle aus. Im Terminal stehen beim Start Versionsnummer und ausgewählte Quelle, in der Oberfläche steht die Datenquelle über der Fußzeile.
+Auf dem Telefon über die **Home-Assistant-Companion-App** oder die HA-Weboberfläche öffnen. Für automatische Browser-Standortfreigabe muss HA über **HTTPS** erreichbar sein und der Zugriff erlaubt werden. Eine unverschlüsselte LAN-IP reicht auf iOS nicht aus. Je nach Browser, eingebetteter Ansicht und Berechtigung kann die Standortabfrage verweigert werden; **Zuhause/Arbeit bleiben manuell wählbar**.
 
-Der Server liest `https://api.transitous.org/api/v6/stoptimes`, jeweils für den tatsächlichen Bahnhof: Ingolstadt Hbf (`de-DELFI_de:09161:9000_G`) oder Pfaffenhofen (`de-DELFI_de:09186:8134`). Er fragt Folgehalte mit ab, berücksichtigt zwei Stunden und mindestens 30 Bahn-Abfahrten und prüft den tatsächlichen Halt am Ziel. Eine Liniennummer oder der Endbahnhof allein genügt nicht. So sind weder wiederholte Routenberechnungen noch ein direkter Zugriff auf die gesperrten Bahn-Endpunkte erforderlich.
+Ermittelt wird die Position des gerade verwendeten Geräts. Auf einem Desktop ist das nicht automatisch die Position deines Telefons. Die HA-Companion-`device_tracker` werden bisher nicht ausgelesen. Exakte Koordinaten bleiben im Browser; an den Server geht nur die Fahrtrichtung.
 
-Die Standort- und RE/RB-Filter sowie rote Verspätungen und Ausfälle bleiben erhalten. `realTime=false` wird ausdrücklich als „Nur Fahrplan“ angezeigt; sind alle gelieferten Verbindungen ohne Echtzeitprognose, erscheint ein zusätzlicher Hinweis. Fehlende Folgehalte oder Zeiten führen zu einer Fehlermeldung statt einer scheinbar vollständigen leeren Zugliste. Ein Halt am Ziel, der als ausgefallen gemeldet wird, kennzeichnet auch die Verbindung als ausgefallen.
+Ingress verwendet die vorhandene HA-Anmeldung und deren HTTPS-/Remote-Zugang. **Kein zusätzlicher Port wird ins LAN geöffnet.** Für unterwegs deinen bereits eingerichteten sicheren HA-Zugang verwenden. Eine Ingress-Sitzungsadresse ist kein dauerhafter öffentlicher PWA-Link; empfohlen ist der Zugriff über HA.
 
-**Stand der Live-Prüfung am 20.10.2026:** Der Nutzer konnte Transitous auf seinem Windows-Rechner erreichen. Die Routenabfrage lieferte RE1 und RB16 auf der richtigen Strecke mit `realTime: true`. Die zusätzliche Abfahrtstafel-Abfrage lieferte Folgehalte und Echtzeitkennzeichen für RB14/RB17; diese fahren nicht zum Ziel und werden korrekt ausgeschlossen. Das kurze Fenster mit zwölf unselektierten Abfahrten enthielt noch keine der gesuchten Zielverbindungen. Ein vollständiger Live-Abruf der fertigen App und die Rückrichtung über Transitous sind damit noch nicht bestätigt. In der Entwicklungscloud ist `api.transitous.org` bis zur Aktivierung der gespeicherten Freigabe blockiert. Die automatisierten Tests verwenden Testdaten.
+## Datenqualität
 
-Ein Echtzeitkennzeichen garantiert weder eine lückenlose Ausfallabdeckung noch ein bestimmtes Alter der Datenfeeds. Die sichtbare Abrufzeit ist weiterhin die Zeit unseres Abrufs. Transitous stellt offene Daten aus mehreren Quellen bereit; Quellenhinweise und OpenStreetMap-Attribution sind in der Oberfläche verlinkt.
+Transitous liefert eine Abfahrtstafel mit Folgehalten. Die App prüft den tatsächlichen Zielhalt; Quelle und Quellenhinweise stehen sichtbar in der Oberfläche.
 
-Diese Einbindung dient zunächst dem privaten Prototypentest. Für weiteren Betrieb die [Transitous-Nutzungsbedingungen](https://transitous.org/api/) beachten: nicht kommerziell, identifizierender User-Agent (bereits umgesetzt), sichtbare Quellenangaben (umgesetzt), Veröffentlichung unter geeigneter Open-Source-Lizenz vor weitergehender öffentlicher Nutzung und Abstimmung bei relevanter oder ressourcenintensiver Nutzung. Es wurde ohne Nutzerentscheidung keine Lizenz für dieses Repository vergeben. Die App verwendet für laufende Updates die Abfahrtstafel, nicht den aufwendigeren Routing-Endpunkt.
+- **Rot:** gemeldete Verspätung oder Ausfall, einschließlich entfallenem Zielhalt.
+- **Nur Fahrplan:** keine Echtzeitprognose; wird nicht als „pünktlich“ ausgegeben.
+- **Unbestätigt/veraltet:** Abruffehler oder Abruf älter als 90 Sekunden. Vorhandene Daten bleiben ausdrücklich als alter Stand sichtbar.
+- API-Antworten werden nicht vom Service Worker gespeichert. Offline entsteht keine scheinbar aktuelle Zugliste.
+- Die Abrufzeit ist keine garantierte Aktualisierungszeit des Feeds. Kurzfristige Ausfälle können fehlen oder verspätet eintreffen.
 
-Optional kann `RAIL_PROVIDER` auf `bahn` für den bisherigen direkten Zugang oder auf `auto` für Bahn mit Wechsel zu Transitous nach einer Zugriffssperre gesetzt werden. Mit `RAIL_PROVIDER=transitous` lässt sich der Standard ausdrücklich festlegen.
+Windows-Tests bestätigten erreichbare Transitous-Routen RE1/RB16 mit `realTime: true` und Folgehalte in der Abfahrtstafel. Das ersetzt keine vollständige Live-Prüfung auf deinem Pi.
 
-## Optionaler direkter Bahn-Zugang und Aktualität
+Die Einbindung dient zunächst dem privaten Prototypentest. Für weitergehenden Betrieb gelten die [Transitous-Nutzungsbedingungen](https://transitous.org/api/): nicht kommerziell, Kontaktkennung und Attribution (umgesetzt), geeignete Open-Source-Lizenz vor weitergehender Veröffentlichung und Abstimmung bei relevanter oder ressourcenintensiver Nutzung. Es wurde ohne Nutzerentscheidung keine Lizenz für dieses Repository vergeben.
 
-Der Server verwendet [`db-vendo-client`](https://github.com/public-transport/db-vendo-client), zunächst Profil `dbweb`, und damit die **nicht offiziell freigegebene Web-Schnittstelle von bahn.de**:
+## Updates
 
-```text
-POST https://int.bahn.de/web/api/angebote/fahrplan
-```
+**Repository-Installation:** Im Store nach Updates suchen und die neue Bahnometer-Version installieren. HA baut das neue Image; Einstellungen bleiben erhalten.
 
-Bei HTTP 403 oder den nicht standardisierten HTTP 452/466 (in der Bibliothek häufig nur „Unknown“) versucht der Server einmal das Bibliotheksprofil `dbnav` über `https://app.services-bahn.de/mob/angebote/fahrplan`. Danach bleibt er zehn Minuten bei diesem Zugang, statt den blockierten Web-Endpunkt jede Minute erneut aufzurufen. Auch dieser Zugang kann gesperrt sein; dann zeigen App und Server-Log den konkreten HTTP-Status und `OPS_BLOCKED`. Für diesen optionalen Bahn-Zugang ist `BAHN_PROFILE=auto` der Standard; mit `dbweb` oder `dbnav` lässt sich ein Profil fest auswählen. Der tatsächliche Zugang steht im API-Antwortfeld `source`.
+**Lokale Installation:** Bahnometer stoppen, den neuen `bahnometer`-Unterordner über Samba an derselben Stelle ersetzen und den Store neu laden. Bei neuer Versionsnummer aktualisieren; bei ersetzt angepasstem Quellstand mit gleicher Version **Neu bauen / Rebuild** verwenden. Anschließend starten und Version im Protokoll prüfen. Home Assistants `/data`-Konfiguration nicht ersetzen.
 
-Um auf einer vorhandenen Windows-Installation den alternativen Zugang direkt zu prüfen, zuerst den Server mit `Strg+C` beenden und dann in derselben PowerShell ausführen:
+## Weitere Dokumentation
 
-```powershell
-$env:BAHN_PROFILE="dbnav"
-$env:RAIL_PROVIDER="bahn"
-npm.cmd start
-```
+- [App-Dokumentation und Fehlerbehebung](bahnometer/DOCS.md)
+- [Änderungsprotokoll](bahnometer/CHANGELOG.md)
+- [Entwicklung und Container-Tests](DEVELOPMENT.md)
 
-Danach die Webseite erneut aktualisieren. Für die automatische Auswahl den Server wieder beenden, `Remove-Item Env:BAHN_PROFILE` ausführen und erneut starten. Eine Änderung des Profils garantiert keine Freischaltung durch die Bahn. Falls auch das direkte Navigator-Profil `OPS_BLOCKED` liefert, ist ein anderer freigegebener Datenzugang erforderlich; wiederholtes Neuinstallieren oder Abschalten der TLS-Prüfung hilft nicht.
-
-Für beide Profile wird kein API-Schlüssel benötigt. Schnittstelle und Zugriff können sich ändern oder blockiert werden. Vor einem öffentlichen oder dauerhaften Betrieb sind die Nutzungsbedingungen der Datenquelle zu prüfen. Eine Alternative mit vertraglich zugesichertem Datenzugang kann hinter `createRailService()` eingebunden werden; die Oberfläche ist von der Datenquelle getrennt.
-
-Die Suche erlaubt nur Regionalverkehr und keine Umstiege. Der Server prüft zusätzlich die Zugkategorie **RE/RB** sowie beide Stationskennungen. Die Bahn kann im Feld `name` nur eine Zugnummer liefern; Kategorie und Linienbezeichnung werden deshalb aus den separaten Feldern `kurzText` und `mittelText` ausgewertet. Andere regionale Zugmarken, ICE, IC, S-Bahn und Busse werden nicht angezeigt. Das Suchfenster beginnt 15 Minuten vor der aktuellen Zeit, damit verspätete Züge mit bereits vergangener Planabfahrt noch berücksichtigt werden. Es werden bis zu zehn passende Verbindungen aus den gelieferten Suchergebnissen dargestellt. Die Suche ist keine vollständige Bahnhofstafel; bereits aus dem Fahrplan entfernte Ausfälle können vom Anbieter fehlen.
-
-- Jede neue Abfrage geht an die ausgewählte Datenquelle. Lediglich gleichzeitig laufende Abfragen derselben Richtung werden zusammengeführt; es gibt keinen abgeschlossenen Antwortcache.
-- Der Anbieter liefert keinen verlässlichen Aktualisierungszeitpunkt seiner Prognosen. **„Zuletzt abgerufen“ zeigt unseren erfolgreichen Abruf**, nicht das Alter der zugrunde liegenden Bahn-Meldung. Eine minutengenaue Garantie ist nicht möglich.
-- Verspätungen bei Abfahrt und Ankunft sowie gemeldete Ausfälle werden rot hervorgehoben. Plan- und Prognosezeiten bleiben unterscheidbar.
-- Fehlende Echtzeitprognosen heißen **„Nur Fahrplan“**, nicht „pünktlich“.
-- Fehler oder ein Abrufalter über 90 Sekunden kennzeichnen die Daten als **unbestätigt**. Vorhandene Verbindungen bleiben als alter Stand sichtbar; erfolgreiche Abrufzeit und Prognosen werden nicht erfunden.
-- HTTP-Antworten der API sind `no-store`; der Service Worker speichert nur die App-Hülle. Offline werden keine gespeicherten Bahn-Antworten als aktuell ausgegeben.
-- Eine globale Grenze von 20 API-Anfragen pro Minute und eine gemeinsame Anfragedeadline von 17 Sekunden einschließlich eines möglichen Quellenwechsels schützen den kleinen privaten Server. Für viele gleichzeitige Nutzer wäre ein zentraler Aktualisierungsdienst mit abgestimmten Anbieterlimits erforderlich.
-
-### Netzwerk in der Codex-Cloud
-
-Für die Standardquelle muss **`api.transitous.org`** zugelassen sein. Der optionale Bahn-Zugang benötigt **`int.bahn.de`** und **`app.services-bahn.de`**. Alle drei Domains stehen im Konfigurationsentwurf. Der Navigator-Zugang wurde nach Aktivierung hier ebenfalls mit `OPS_BLOCKED` / HTTP 452 abgewiesen. Ein gespeicherter Entwurf allein ändert den laufenden Netzwerkzugriff nicht. Änderungen in den Umgebungseinstellungen prüfen und speichern, anschließend die Umgebung veröffentlichen.
-
-Danach den betroffenen Abruf erneut ausführen:
-
-```sh
-curl --fail-with-body 'http://127.0.0.1:3000/api/connections?origin=home'
-```
-
-Der Client respektiert die vorhandenen `HTTPS_PROXY`-/`HTTP_PROXY`-Einstellungen und die CA-Vertrauenskette. TLS-Prüfung bleibt aktiviert.
-
-## Ansicht mit Beispieldaten
-
-Über **Gut zu wissen → Ansicht mit Beispieldaten testen** oder den URL-Parameter **`?demo=1`** lässt sich die Oberfläche ohne Bahnzugriff ansehen. Ein permanenter Banner und Markierungen an jeder Verbindung kennzeichnen den Demomodus. Fehler im Live-Modus aktivieren ihn niemals automatisch. „Live-Daten laden“ beendet die Demo und startet einen echten Abruf.
-
-## Prüfungen
-
-```sh
-npm test
-npm run test:e2e
-```
-
-Ein ausdrücklich manueller Live-Test beider Fahrtrichtungen mit Transitous ist `npm run check:live` (Windows: `npm.cmd run check:live`). Er zeigt Quelle, Anzahl passender Verbindungen, Echtzeitkennzeichen und wenige Abfahrten. Keine Verbindungen oder ein Abruffehler ergeben Exitcode 1; die reguläre Testsuite sendet keine Live-Abfragen.
-
-Die Unit-/Serverprüfungen testen Standortgrenzen, Stationskennungen, die reale DB-Feldbelegung, RE/RB-Filter, die Transitous-Abfahrtstafel mit Folgehalten, Verspätungen, Ausfälle, fehlende Echtzeitdaten, frische Folgeabrufe, Quellenwechsel und die HTTP-Schnittstelle. Die elf Browsertests prüfen die mobile/iPad-Darstellung, beide Standorte, manuelle Richtung, einen neu gemeldeten Ausfall, Fehler und Wiederholung, alte Zeitstempel, automatische Abfragen, Quellenangaben, fehlende Echtzeitabdeckung und Offline-Verhalten. Diese Tests verwenden Testdaten und beweisen nicht die Erreichbarkeit oder Aktualität der Live-API auf einem anderen Internetzugang.
-
-### Unter Windows aktualisieren
-
-Bei einer ZIP-Installation den laufenden Server mit `Strg+C` beenden, die aktuelle ZIP von GitHub in einen neuen Ordner entpacken und dort PowerShell öffnen. Dann `npm.cmd ci` und `npm.cmd start` ausführen. Die vorhandene Node.js-Installation kann weiterverwendet werden. Den Browser anschließend neu laden. Eine auf dem eigenen Rechner gemeldete `OPS_BLOCKED`-Antwort kommt von der Bahn; die Netzwerkfreigaben der Codex-Cloud ändern diese lokale Sperre nicht.
-
-Für die Browsertests wird ein Chromium benötigt. In dieser Umgebung liegt es unter `/usr/bin/chromium`. Bei abweichender Installation `CHROMIUM_PATH` setzen. Screenshots entstehen unter `test-results/` und sind nicht versioniert.
+Getestet sind Unit-/Browsertests einschließlich HA-Ingress-iframe sowie Container-Builds für AMD64 und ARM64. Der AMD64-Container wurde mit privater Supervisor-Konfiguration, Ingress-Gateway, Neustart und nicht privilegiertem Webprozess geprüft. **Eine Installation auf einem echten HA-OS/Pi-5-System wurde hier noch nicht ausgeführt.**

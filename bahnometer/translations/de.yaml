@@ -1,0 +1,7 @@
+configuration:
+  data_source:
+    name: Datenquelle
+    description: Transitous wird empfohlen. Die direkten Bahn-Zugänge können gesperrt sein.
+  default_origin:
+    name: Standard-Startort
+    description: home = Zuhause / Ingolstadt, work = Arbeit / Pfaffenhofen. Gilt ohne gespeicherte Auswahl oder erkannten Standort.
