@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultProfile } from 'db-vendo-client/lib/default-profile.js';
 import { profile } from 'db-vendo-client/p/dbweb/index.js';
-import { parseBahnLine, createBahnProvider } from '../../lib/provider.js';
+import { parseBahnLine, createBahnProvider, isBahnAccessBlocked } from '../../lib/provider.js';
 
 test('Echte DB-Feldbelegung: Zugnummer im Namen, RE/RB im separaten Feld', () => {
   const context = { profile: { ...defaultProfile, ...profile } };
@@ -47,4 +47,26 @@ test('Andere Fehler verursachen keinen blinden Wiederholungsversuch; Profil ist 
   await assert.rejects(createBahnProvider({ clientFactory, mode: 'dbnav' }).journeys('a', 'b', {}), /app.services-bahn.de/);
   assert.equal(calls, 2);
   assert.throws(() => createBahnProvider({ mode: 'invalid' }), /BAHN_PROFILE/);
+});
+
+test('HTTP 466 mit statusText Unknown aktiviert den alternativen Zugang', async () => {
+  const calls = [];
+  const provider = createBahnProvider({ clientFactory: profile => ({ async journeys() {
+    calls.push(profile.journeysEndpoint);
+    if (profile.journeysEndpoint.includes('int.bahn.de')) throw Object.assign(new Error('Unknown'), { response: { status: 466 } });
+    return { journeys: [] };
+  } }) });
+  const data = await provider.journeys('a', 'b', {});
+  assert.match(data.source, /DB Navigator/);
+  assert.equal(calls.length, 2);
+});
+
+test('HTTP 466 bleibt nach Sperre beider Zugänge als Diagnose verfügbar', async () => {
+  const provider = createBahnProvider({ clientFactory: () => ({ async journeys() {
+    throw Object.assign(new Error('Unknown'), { response: { status: 466 } });
+  } }) });
+  await assert.rejects(provider.journeys('a', 'b', {}), { code: 'BAHN_ACCESS_BLOCKED', upstreamStatus: 466 });
+  assert.equal(isBahnAccessBlocked({ code: 'OPS_BLOCKED' }), true);
+  assert.equal(isBahnAccessBlocked({ response: { status: 500 } }), false);
+  assert.equal(isBahnAccessBlocked(new Error('Unknown')), false);
 });

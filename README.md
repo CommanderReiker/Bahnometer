@@ -44,7 +44,16 @@ Der Server verwendet [`db-vendo-client`](https://github.com/public-transport/db-
 POST https://int.bahn.de/web/api/angebote/fahrplan
 ```
 
-Bei HTTP 403 versucht der Server einmal das Bibliotheksprofil `dbnav` über `https://app.services-bahn.de/mob/angebote/fahrplan`. Danach bleibt er zehn Minuten bei diesem Zugang, statt den blockierten Web-Endpunkt jede Minute erneut aufzurufen. Auch dieser Zugang kann gesperrt sein; dann zeigt die App ausdrücklich `HTTP 403 / OPS_BLOCKED`. `BAHN_PROFILE=auto` ist der Standard; mit `dbweb` oder `dbnav` lässt sich ein Profil fest auswählen. Der tatsächliche Zugang steht im API-Antwortfeld `source`.
+Bei HTTP 403 oder dem nicht standardisierten HTTP 466 (in der Bibliothek häufig nur „Unknown“) versucht der Server einmal das Bibliotheksprofil `dbnav` über `https://app.services-bahn.de/mob/angebote/fahrplan`. Danach bleibt er zehn Minuten bei diesem Zugang, statt den blockierten Web-Endpunkt jede Minute erneut aufzurufen. Auch dieser Zugang kann gesperrt sein; dann zeigen App und Server-Log den konkreten HTTP-Status und `OPS_BLOCKED`. `BAHN_PROFILE=auto` ist der Standard; mit `dbweb` oder `dbnav` lässt sich ein Profil fest auswählen. Der tatsächliche Zugang steht im API-Antwortfeld `source`.
+
+Um auf einer vorhandenen Windows-Installation den alternativen Zugang direkt zu prüfen, zuerst den Server mit `Strg+C` beenden und dann in derselben PowerShell ausführen:
+
+```powershell
+$env:BAHN_PROFILE="dbnav"
+npm.cmd start
+```
+
+Danach die Webseite erneut aktualisieren. Für die automatische Auswahl den Server wieder beenden, `Remove-Item Env:BAHN_PROFILE` ausführen und erneut starten. Eine Änderung des Profils garantiert keine Freischaltung durch die Bahn. Falls auch das direkte Navigator-Profil `OPS_BLOCKED` liefert, ist ein anderer freigegebener Datenzugang erforderlich; wiederholtes Neuinstallieren oder Abschalten der TLS-Prüfung hilft nicht.
 
 Für beide Profile wird kein API-Schlüssel benötigt. Schnittstelle und Zugriff können sich ändern oder blockiert werden. Vor einem öffentlichen oder dauerhaften Betrieb sind die Nutzungsbedingungen der Datenquelle zu prüfen. Eine Alternative mit vertraglich zugesichertem Datenzugang kann hinter `createRailService()` eingebunden werden; die Oberfläche ist von der Datenquelle getrennt.
 
